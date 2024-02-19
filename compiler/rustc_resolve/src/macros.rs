@@ -12,7 +12,7 @@ use rustc_ast_pretty::pprust;
 use rustc_attr::StabilityLevel;
 use rustc_data_structures::intern::Interned;
 use rustc_data_structures::sync::Lrc;
-use rustc_errors::{Applicability, StashKey};
+use rustc_errors::StashKey;
 use rustc_expand::base::{Annotatable, DeriveResolutions, Indeterminate, ResolverExpand};
 use rustc_expand::base::{SyntaxExtension, SyntaxExtensionKind};
 use rustc_expand::compile_declarative_macro;
@@ -736,37 +736,40 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 }
                 path_res @ (PathResult::NonModule(..) | PathResult::Failed { .. }) => {
                     let mut suggestion = None;
-                    let (span, label, module) =
-                        if let PathResult::Failed { span, label, module, .. } = path_res {
-                            // try to suggest if it's not a macro, maybe a function
-                            if let PathResult::NonModule(partial_res) =
-                                self.maybe_resolve_path(&path, Some(ValueNS), &parent_scope)
-                                && partial_res.unresolved_segments() == 0
-                            {
-                                let sm = self.tcx.sess.source_map();
-                                let exclamation_span = sm.next_point(span);
-                                suggestion = Some((
-                                    vec![(exclamation_span, "".to_string())],
-                                    format!(
-                                        "{} is not a macro, but a {}, try to remove `!`",
-                                        Segment::names_to_string(&path),
-                                        partial_res.base_res().descr()
-                                    ),
-                                    Applicability::MaybeIncorrect,
-                                ));
-                            }
-                            (span, label, module)
-                        } else {
-                            (
-                                path_span,
-                                format!(
-                                    "partially resolved path in {} {}",
-                                    kind.article(),
-                                    kind.descr()
-                                ),
-                                None,
-                            )
-                        };
+                    let (span, label, module) = if let PathResult::Failed {
+                        span,
+                        label,
+                        module,
+                        ..
+                    } = path_res
+                    {
+                        // try to suggest if it's not a macro, maybe a function
+                        if let PathResult::NonModule(partial_res) =
+                            self.maybe_resolve_path(&path, Some(ValueNS), &parent_scope)
+                            && partial_res.unresolved_segments() == 0
+                        {
+                            let sm = self.tcx.sess.source_map();
+                            let exclamation_span = sm.next_point(span);
+                            suggestion = Some(
+                                errors::FailedToResolveHelpOrSuggestion::SuggestRemoveExclamationMark {
+                                    exclamation_span,
+                                    path: Segment::names_to_string(&path),
+                                    kind: partial_res.base_res().descr(),
+                                },
+                            );
+                        }
+                        (span, label, module)
+                    } else {
+                        (
+                            path_span,
+                            errors::FailedToResolveLabel::PartiallyResolvedPath {
+                                span: DUMMY_SP,
+                                article: kind.article(),
+                                descr: kind.descr(),
+                            },
+                            None,
+                        )
+                    };
                     self.report_error(
                         span,
                         ResolutionError::FailedToResolve {

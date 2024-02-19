@@ -2813,14 +2813,11 @@ impl<'a: 'ast, 'ast, 'tcx> LateResolutionVisitor<'a, '_, 'ast, 'tcx> {
     }
 
     pub(crate) fn emit_non_static_lt_in_const_param_ty_error(&self, lifetime_ref: &ast::Lifetime) {
-        self.r
-            .dcx()
-            .create_err(errors::ParamInTyOfConstParam {
-                span: lifetime_ref.ident.span,
-                name: lifetime_ref.ident.name,
-                param_kind: Some(errors::ParamKindInTyOfConstParam::Lifetime),
-            })
-            .emit();
+        self.r.dcx().emit_err(errors::ParamInTyOfConstParam {
+            span: lifetime_ref.ident.span,
+            name: lifetime_ref.ident.name,
+            param_kind: Some(errors::ParamKindInTyOfConstParam::Lifetime),
+        });
     }
 
     /// Non-static lifetimes are prohibited in anonymous constants under `min_const_generics`.
@@ -2833,31 +2830,25 @@ impl<'a: 'ast, 'ast, 'tcx> LateResolutionVisitor<'a, '_, 'ast, 'tcx> {
     ) {
         match cause {
             NoConstantGenericsReason::IsEnumDiscriminant => {
-                self.r
-                    .dcx()
-                    .create_err(errors::ParamInEnumDiscriminant {
-                        span: lifetime_ref.ident.span,
-                        name: lifetime_ref.ident.name,
-                        param_kind: errors::ParamKindInEnumDiscriminant::Lifetime,
-                    })
-                    .emit();
+                self.r.dcx().emit_err(errors::ParamInEnumDiscriminant {
+                    span: lifetime_ref.ident.span,
+                    name: lifetime_ref.ident.name,
+                    param_kind: errors::ParamKindInEnumDiscriminant::Lifetime,
+                });
             }
             NoConstantGenericsReason::NonTrivialConstArg => {
                 assert!(!self.r.tcx.features().generic_const_exprs);
-                self.r
-                    .dcx()
-                    .create_err(errors::ParamInNonTrivialAnonConst {
-                        span: lifetime_ref.ident.span,
-                        name: lifetime_ref.ident.name,
-                        param_kind: errors::ParamKindInNonTrivialAnonConst::Lifetime,
-                        help: self
-                            .r
-                            .tcx
-                            .sess
-                            .is_nightly_build()
-                            .then_some(errors::ParamInNonTrivialAnonConstHelp),
-                    })
-                    .emit();
+                self.r.dcx().emit_err(errors::ParamInNonTrivialAnonConst {
+                    span: lifetime_ref.ident.span,
+                    name: lifetime_ref.ident.name,
+                    param_kind: errors::ParamKindInNonTrivialAnonConst::Lifetime,
+                    help: self
+                        .r
+                        .tcx
+                        .sess
+                        .is_nightly_build()
+                        .then_some(errors::ParamInNonTrivialAnonConstHelp),
+                });
             }
         }
     }

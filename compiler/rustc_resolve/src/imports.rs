@@ -4,8 +4,9 @@ use crate::diagnostics::{import_candidates, DiagnosticMode, Suggestion};
 use crate::errors::{
     CannotBeReexportedCratePublic, CannotBeReexportedCratePublicNS, CannotBeReexportedPrivate,
     CannotBeReexportedPrivateNS, CannotDetermineImportResolution, CannotGlobImportAllCrates,
-    ConsiderAddingMacroExport, ConsiderMarkingAsPub, IsNotDirectlyImportable,
-    ItemsInTraitsAreNotImportable,
+    ConsiderAddingMacroExport, ConsiderMarkingAsPub, FailedToResolveHelpOrSuggestion,
+    FailedToResolveLabel, FailedToResolveNote, IsNotDirectlyImportable,
+    ItemsInTraitsAreNotImportable, UnresolvedImport,
 };
 use crate::Determinacy::{self, *};
 use crate::Namespace::*;
@@ -17,7 +18,7 @@ use crate::{NameBinding, NameBindingData, NameBindingKind, PathResult, Used};
 use rustc_ast::NodeId;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_data_structures::intern::Interned;
-use rustc_errors::{codes::*, pluralize, struct_span_code_err, Applicability, MultiSpan};
+use rustc_errors::MultiSpan;
 use rustc_hir::def::{self, DefKind, PartialRes};
 use rustc_middle::metadata::ModChild;
 use rustc_middle::metadata::Reexport;
@@ -31,7 +32,7 @@ use rustc_session::lint::BuiltinLintDiagnostics;
 use rustc_span::edit_distance::find_best_match_for_name;
 use rustc_span::hygiene::LocalExpnId;
 use rustc_span::symbol::{kw, Ident, Symbol};
-use rustc_span::Span;
+use rustc_span::{Span, DUMMY_SP};
 use smallvec::SmallVec;
 
 use std::cell::Cell;
@@ -246,8 +247,8 @@ impl<'a> NameResolution<'a> {
 #[derive(Debug, Clone)]
 struct UnresolvedImportError {
     span: Span,
-    label: Option<String>,
-    note: Option<String>,
+    label: Option<FailedToResolveLabel>,
+    note: Option<FailedToResolveNote>,
     suggestion: Option<Suggestion>,
     candidates: Option<Vec<ImportSuggestion>>,
 }
@@ -688,25 +689,25 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 format!("`{path}`")
             })
             .collect::<Vec<_>>();
-        let msg = format!("unresolved import{} {}", pluralize!(paths.len()), paths.join(", "),);
 
-        let mut diag = struct_span_code_err!(self.dcx(), span, E0432, "{}", &msg);
+        let mut diag = self.dcx().create_err(UnresolvedImport {
+            span,
+            number: paths.len(),
+            paths: paths.join(", "),
+        });
 
         if let Some((_, UnresolvedImportError { note: Some(note), .. })) = errors.iter().last() {
-            diag.note(note.clone());
+            diag.subdiagnostic(self.dcx(), note.clone());
         }
 
         for (import, err) in errors.into_iter().take(MAX_LABEL_COUNT) {
-            if let Some(label) = err.label {
-                diag.span_label(err.span, label);
+            if let Some(mut label) = err.label {
+                label.set_span(err.span);
+                diag.subdiagnostic(self.dcx(), label);
             }
 
-            if let Some((suggestions, msg, applicability)) = err.suggestion {
-                if suggestions.is_empty() {
-                    diag.help(msg);
-                    continue;
-                }
-                diag.multipart_suggestion(msg, suggestions, applicability);
+            if let Some(help_or_suggestion) = err.suggestion {
+                diag.subdiagnostic(self.dcx(), help_or_suggestion);
             }
 
             if let Some(candidates) = &err.candidates {
@@ -924,11 +925,10 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                             span,
                             label: None,
                             note,
-                            suggestion: Some((
-                                vec![(span, Segment::names_to_string(&suggestion))],
-                                String::from("a similar path exists"),
-                                Applicability::MaybeIncorrect,
-                            )),
+                            suggestion: Some(FailedToResolveHelpOrSuggestion::SimilarPathExists {
+                                span,
+                                path: Segment::names_to_string(&suggestion),
+                            }),
                             candidates: None,
                         },
                         None => UnresolvedImportError {
@@ -979,9 +979,9 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                             // Importing a module into itself is not allowed.
                             return Some(UnresolvedImportError {
                                 span: import.span,
-                                label: Some(String::from(
-                                    "cannot glob-import a module into itself",
-                                )),
+                                label: Some(FailedToResolveLabel::CannotGlobImportIntoItself {
+                                    span: DUMMY_SP,
+                                }),
                                 note: None,
                                 suggestion: None,
                                 candidates: None,
@@ -1147,11 +1147,10 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
 
                 let lev_suggestion =
                     find_best_match_for_name(&names, ident.name, None).map(|suggestion| {
-                        (
-                            vec![(ident.span, suggestion.to_string())],
-                            String::from("a similar name exists in the module"),
-                            Applicability::MaybeIncorrect,
-                        )
+                        FailedToResolveHelpOrSuggestion::SimilarNameInModule {
+                            span: ident.span,
+                            suggestion,
+                        }
                     });
 
                 let (suggestion, note) =
@@ -1164,18 +1163,22 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                     ModuleOrUniformRoot::Module(module) => {
                         let module_str = module_to_string(module);
                         if let Some(module_str) = module_str {
-                            format!("no `{ident}` in `{module_str}`")
+                            FailedToResolveLabel::NoIdentInModule {
+                                span: DUMMY_SP,
+                                ident,
+                                module: module_str,
+                            }
                         } else {
-                            format!("no `{ident}` in the root")
+                            FailedToResolveLabel::NoIdentInRoot { span: DUMMY_SP, ident }
                         }
                     }
                     _ => {
                         if !ident.is_path_segment_keyword() {
-                            format!("no external crate `{ident}`")
+                            FailedToResolveLabel::NoExternalCrateIdent { span: DUMMY_SP, ident }
                         } else {
                             // HACK(eddyb) this shows up for `self` & `super`, which
                             // should work instead - for now keep the same error message.
-                            format!("no `{ident}` in the root")
+                            FailedToResolveLabel::NoIdentInRoot { span: DUMMY_SP, ident }
                         }
                     }
                 };

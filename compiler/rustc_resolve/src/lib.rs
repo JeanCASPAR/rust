@@ -21,6 +21,8 @@
 #![allow(rustc::potential_query_instability)]
 #![allow(rustc::untranslatable_diagnostic)]
 #![allow(internal_features)]
+//#![deny(rustc::untranslatable_diagnostic)]
+//#![deny(rustc::diagnostic_outside_of_impl)]
 
 #[macro_use]
 extern crate tracing;
@@ -232,7 +234,7 @@ enum ResolutionError<'a> {
     /// Error E0433: failed to resolve.
     FailedToResolve {
         segment: Option<Symbol>,
-        label: String,
+        label: errors::FailedToResolveLabel,
         suggestion: Option<Suggestion>,
         module: Option<ModuleOrUniformRoot<'a>>,
     },
@@ -290,7 +292,7 @@ enum ResolutionError<'a> {
 enum VisResolutionError<'a> {
     Relative2018(Span, &'a ast::Path),
     AncestorOnly(Span),
-    FailedToResolve(Span, String, Option<Suggestion>),
+    FailedToResolve(Span, errors::FailedToResolveLabel, Option<Suggestion>),
     ExpectedFound(Span, String, Res),
     Indeterminate(Span),
     ModuleOnly(Span),
@@ -412,7 +414,7 @@ enum PathResult<'a> {
     Indeterminate,
     Failed {
         span: Span,
-        label: String,
+        label: errors::FailedToResolveLabel,
         suggestion: Option<Suggestion>,
         is_error_from_last_segment: bool,
         module: Option<ModuleOrUniformRoot<'a>>,
@@ -427,10 +429,13 @@ impl<'a> PathResult<'a> {
         is_error_from_last_segment: bool,
         finalize: bool,
         module: Option<ModuleOrUniformRoot<'a>>,
-        label_and_suggestion: impl FnOnce() -> (String, Option<Suggestion>),
+        label_and_suggestion: impl FnOnce() -> (errors::FailedToResolveLabel, Option<Suggestion>),
     ) -> PathResult<'a> {
-        let (label, suggestion) =
-            if finalize { label_and_suggestion() } else { (String::new(), None) };
+        let (label, suggestion) = if finalize {
+            label_and_suggestion()
+        } else {
+            (errors::FailedToResolveLabel::EmptyLabel, None)
+        };
         PathResult::Failed {
             span: ident.span,
             segment_name: ident.name,

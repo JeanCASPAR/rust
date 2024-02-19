@@ -26,13 +26,14 @@ use rustc_span::edition::Edition;
 use rustc_span::hygiene::MacroKind;
 use rustc_span::source_map::SourceMap;
 use rustc_span::symbol::{kw, sym, Ident, Symbol};
-use rustc_span::{BytePos, Span, SyntaxContext};
+use rustc_span::{BytePos, Span, SyntaxContext, DUMMY_SP};
 use thin_vec::{thin_vec, ThinVec};
 
 use crate::errors::{
-    self, AddedMacroUse, ChangeImportBinding, ChangeImportBindingSuggestion, ConsiderAddingADerive,
-    ExplicitUnsafeTraits, MaybeMissingMacroRulesName,
+    self, AddedMacroUse, ChangeImportBinding, ChangeImportBindingSuggestion,
+    FailedToResolveHelpOrSuggestion, FailedToResolveLabel, FailedToResolveNote,
 };
+use crate::errors::{ConsiderAddingADerive, ExplicitUnsafeTraits, MaybeMissingMacroRulesName};
 use crate::imports::{Import, ImportKind};
 use crate::late::{PatternSource, Rib};
 use crate::{errors as errs, BindingKey};
@@ -48,8 +49,7 @@ mod tests;
 
 type Res = def::Res<ast::NodeId>;
 
-/// A vector of spans and replacements, a message and applicability.
-pub(crate) type Suggestion = (Vec<(Span, String)>, String, Applicability);
+pub(crate) type Suggestion = errors::FailedToResolveHelpOrSuggestion;
 
 /// Potential candidate for an undeclared or out-of-scope label - contains the ident of a
 /// similarly named label and whether or not it is reachable.
@@ -801,18 +801,14 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             ResolutionError::SelfImportOnlyInImportListWithNonEmptyPrefix => {
                 self.dcx().create_err(errs::SelfImportOnlyInImportListWithNonEmptyPrefix { span })
             }
-            ResolutionError::FailedToResolve { segment, label, suggestion, module } => {
-                let mut err =
-                    struct_span_code_err!(self.dcx(), span, E0433, "failed to resolve: {}", &label);
-                err.span_label(span, label);
+            ResolutionError::FailedToResolve { segment, mut label, suggestion, module } => {
+                label.set_span(span);
 
-                if let Some((suggestions, msg, applicability)) = suggestion {
-                    if suggestions.is_empty() {
-                        err.help(msg);
-                        return err;
-                    }
-                    err.multipart_suggestion(msg, suggestions, applicability);
-                }
+                let mut err = self.dcx().create_err(errors::FailedToResolve {
+                    span,
+                    label,
+                    suggestion,
+                });
 
                 if let Some(ModuleOrUniformRoot::Module(module)) = module
                     && let Some(module) = module.opt_def_id()
@@ -1953,7 +1949,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         module: Option<ModuleOrUniformRoot<'a>>,
         failed_segment_idx: usize,
         ident: Ident,
-    ) -> (String, Option<Suggestion>) {
+    ) -> (FailedToResolveLabel, Option<FailedToResolveHelpOrSuggestion>) {
         let is_last = failed_segment_idx == path.len() - 1;
         let ns = if is_last { opt_ns.unwrap_or(TypeNS) } else { TypeNS };
         let module_res = match module {
@@ -1967,49 +1963,48 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 .sort_by_cached_key(|c| (c.path.segments.len(), pprust::path_to_string(&c.path)));
             if let Some(candidate) = candidates.get(0) {
                 (
-                    String::from("unresolved import"),
-                    Some((
-                        vec![(ident.span, pprust::path_to_string(&candidate.path))],
-                        String::from("a similar path exists"),
-                        Applicability::MaybeIncorrect,
-                    )),
+                    FailedToResolveLabel::UnresolveImport { span: DUMMY_SP },
+                    Some(FailedToResolveHelpOrSuggestion::SimilarPathExists {
+                        span: ident.span,
+                        path: pprust::path_to_string(&candidate.path),
+                    }),
                 )
             } else if ident.name == sym::core {
                 (
-                    format!("maybe a missing crate `{ident}`?"),
-                    Some((
-                        vec![(ident.span, "std".to_string())],
-                        "try using `std` instead of `core`".to_string(),
-                        Applicability::MaybeIncorrect,
-                    )),
+                    FailedToResolveLabel::MaybeMissingCrate { span: DUMMY_SP, ident },
+                    Some(FailedToResolveHelpOrSuggestion::TryUsingStdInsteadOfCore {
+                        span: ident.span,
+                    }),
                 )
             } else if self.tcx.sess.is_rust_2015() {
                 (
-                    format!("maybe a missing crate `{ident}`?"),
-                    Some((
-                        vec![],
-                        format!(
-                            "consider adding `extern crate {ident}` to use the `{ident}` crate"
-                        ),
-                        Applicability::MaybeIncorrect,
-                    )),
+                    FailedToResolveLabel::MaybeMissingCrate { span: DUMMY_SP, ident },
+                    Some(FailedToResolveHelpOrSuggestion::ConsiderAddingExternCrate),
                 )
             } else {
-                (format!("could not find `{ident}` in the crate root"), None)
+                (FailedToResolveLabel::CouldNotFindIdentInRoot { span: DUMMY_SP, ident }, None)
             }
         } else if failed_segment_idx > 0 {
             let parent = path[failed_segment_idx - 1].ident.name;
-            let parent = match parent {
+            let mut msg = match parent {
                 // ::foo is mounted at the crate root for 2015, and is the extern
                 // prelude for 2018+
                 kw::PathRoot if self.tcx.sess.edition() > Edition::Edition2015 => {
-                    "the list of imported crates".to_owned()
+                    FailedToResolveLabel::CouldNotFindIdentInImportedCrates {
+                        span: DUMMY_SP,
+                        ident,
+                    }
                 }
-                kw::PathRoot | kw::Crate => "the crate root".to_owned(),
-                _ => format!("`{parent}`"),
+                kw::PathRoot | kw::Crate => {
+                    FailedToResolveLabel::CouldNotFindIdentInRoot { span: DUMMY_SP, ident }
+                }
+                _ => FailedToResolveLabel::CouldNotFindIdentInParent {
+                    span: DUMMY_SP,
+                    ident,
+                    parent,
+                },
             };
 
-            let mut msg = format!("could not find `{ident}` in {parent}");
             if ns == TypeNS || ns == ValueNS {
                 let ns_to_try = if ns == TypeNS { ValueNS } else { TypeNS };
                 let binding = if let Some(module) = module {
@@ -2050,13 +2045,13 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 };
                 if let Some(binding) = binding {
                     let mut found = |what| {
-                        msg = format!(
-                            "expected {}, found {} `{}` in {}",
-                            ns.descr(),
+                        msg = FailedToResolveLabel::ExpectedFound {
+                            span: DUMMY_SP,
+                            ns_descr: ns.descr(),
                             what,
                             ident,
-                            parent
-                        )
+                            parent,
+                        };
                     };
                     if binding.module().is_some() {
                         found("module")
@@ -2076,12 +2071,9 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             // We can use this to improve a confusing error for, e.g. `use Self::Variant` in an
             // impl
             if opt_ns.is_none() {
-                ("`Self` cannot be used in imports".to_string(), None)
+                (FailedToResolveLabel::SelfCannotBeUsedInImports { span: DUMMY_SP }, None)
             } else {
-                (
-                    "`Self` is only available in impls, traits, and type definitions".to_string(),
-                    None,
-                )
+                (FailedToResolveLabel::SelfImportsOnlyAllowedIn { span: DUMMY_SP }, None)
             }
         } else if ident.name.as_str().chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
             // Check whether the name refers to an item in the value namespace.
@@ -2123,33 +2115,21 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 Some(LexicalScopeBinding::Item(name_binding)) => Some(name_binding.span),
                 _ => None,
             };
-            let suggestion = match_span.map(|span| {
-                (
-                    vec![(span, String::from(""))],
-                    format!("`{ident}` is defined here, but is not a type"),
-                    Applicability::MaybeIncorrect,
-                )
-            });
+            let suggestion =
+                match_span.map(|span| FailedToResolveHelpOrSuggestion::IdentIsNotAType { span });
 
-            (format!("use of undeclared type `{ident}`"), suggestion)
+            (FailedToResolveLabel::UndeclaredType { span: DUMMY_SP, ident }, suggestion)
         } else {
             let mut suggestion = None;
             if ident.name == sym::alloc {
-                suggestion = Some((
-                    vec![],
-                    String::from("add `extern crate alloc` to use the `alloc` crate"),
-                    Applicability::MaybeIncorrect,
-                ))
+                suggestion = Some(FailedToResolveHelpOrSuggestion::AddExternCrateAlloc)
             }
 
             suggestion = suggestion.or_else(|| {
                 self.find_similarly_named_module_or_crate(ident.name, parent_scope.module).map(
-                    |sugg| {
-                        (
-                            vec![(ident.span, sugg.to_string())],
-                            String::from("there is a crate or module with a similar name"),
-                            Applicability::MaybeIncorrect,
-                        )
+                    |sugg| FailedToResolveHelpOrSuggestion::CrateModuleWithSimilarName {
+                        span: ident.span,
+                        suggestion: sugg,
                     },
                 )
             });
@@ -2162,9 +2142,15 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 ignore_binding,
             ) {
                 let descr = binding.res().descr();
-                (format!("{descr} `{ident}` is not a crate or module"), suggestion)
+                (
+                    FailedToResolveLabel::IsNotCrateOrModule { span: DUMMY_SP, descr, ident },
+                    suggestion,
+                )
             } else {
-                (format!("use of undeclared crate or module `{ident}`"), suggestion)
+                (
+                    FailedToResolveLabel::UndeclaredCrateOrModule { span: DUMMY_SP, ident },
+                    suggestion,
+                )
             }
         }
     }
@@ -2175,7 +2161,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         span: Span,
         mut path: Vec<Segment>,
         parent_scope: &ParentScope<'a>,
-    ) -> Option<(Vec<Segment>, Option<String>)> {
+    ) -> Option<(Vec<Segment>, Option<FailedToResolveNote>)> {
         debug!("make_path_suggestion: span={:?} path={:?}", span, path);
 
         match (path.get(0), path.get(1)) {
@@ -2210,7 +2196,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         &mut self,
         mut path: Vec<Segment>,
         parent_scope: &ParentScope<'a>,
-    ) -> Option<(Vec<Segment>, Option<String>)> {
+    ) -> Option<(Vec<Segment>, Option<FailedToResolveNote>)> {
         // Replace first ident with `self` and check if that is valid.
         path[0].ident.name = kw::SelfLower;
         let result = self.maybe_resolve_path(&path, None, parent_scope);
@@ -2229,21 +2215,13 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         &mut self,
         mut path: Vec<Segment>,
         parent_scope: &ParentScope<'a>,
-    ) -> Option<(Vec<Segment>, Option<String>)> {
+    ) -> Option<(Vec<Segment>, Option<FailedToResolveNote>)> {
         // Replace first ident with `crate` and check if that is valid.
         path[0].ident.name = kw::Crate;
         let result = self.maybe_resolve_path(&path, None, parent_scope);
         debug!("make_missing_crate_suggestion:  path={:?} result={:?}", path, result);
         if let PathResult::Module(..) = result {
-            Some((
-                path,
-                Some(
-                    "`use` statements changed in Rust 2018; read more at \
-                     <https://doc.rust-lang.org/edition-guide/rust-2018/module-system/path-\
-                     clarity.html>"
-                        .to_string(),
-                ),
-            ))
+            Some((path, Some(FailedToResolveNote::UseStatementsChangedRust2018)))
         } else {
             None
         }
@@ -2260,7 +2238,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         &mut self,
         mut path: Vec<Segment>,
         parent_scope: &ParentScope<'a>,
-    ) -> Option<(Vec<Segment>, Option<String>)> {
+    ) -> Option<(Vec<Segment>, Option<FailedToResolveNote>)> {
         // Replace first ident with `crate` and check if that is valid.
         path[0].ident.name = kw::Super;
         let result = self.maybe_resolve_path(&path, None, parent_scope);
@@ -2282,7 +2260,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         &mut self,
         mut path: Vec<Segment>,
         parent_scope: &ParentScope<'a>,
-    ) -> Option<(Vec<Segment>, Option<String>)> {
+    ) -> Option<(Vec<Segment>, Option<FailedToResolveNote>)> {
         if path[1].ident.span.is_rust_2015() {
             return None;
         }
@@ -2327,7 +2305,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         import: Import<'a>,
         module: ModuleOrUniformRoot<'a>,
         ident: Ident,
-    ) -> Option<(Option<Suggestion>, Option<String>)> {
+    ) -> Option<(Option<Suggestion>, Option<FailedToResolveNote>)> {
         let ModuleOrUniformRoot::Module(mut crate_module) = module else {
             return None;
         };
@@ -2354,11 +2332,18 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 _ => format!("{ident}"),
             };
 
-            let mut corrections: Vec<(Span, String)> = Vec::new();
+            let mut import_span = None;
+            let mut removal = None;
+            let mut start_point_nested = None;
+            let mut start_point_not_nested = None;
+            let mut start_snippet = "".to_owned();
+            let mut end_point_not_nested = None;
+            let mut module_relative_root_import = None;
+
             if !import.is_nested() {
                 // Assume this is the easy case of `use issue_59764::foo::makro;` and just remove
                 // intermediate segments.
-                corrections.push((import.span, format!("{module_name}::{import_snippet}")));
+                import_span = Some(import.span);
             } else {
                 // Find the binding span (and any trailing commas and spaces).
                 //   ie. `use a::b::{c, d, e};`
@@ -2392,7 +2377,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 debug!("check_for_module_export_macro: removal_span={:?}", removal_span);
 
                 // Remove the `removal_span`.
-                corrections.push((removal_span, "".to_string()));
+                removal = Some(removal_span);
 
                 // Find the span after the crate name and if it has nested imports immediately
                 // after the crate name already.
@@ -2421,42 +2406,39 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 // Add the import to the start, with a `{` if required.
                 let start_point = source_map.start_point(after_crate_name);
                 if is_definitely_crate
-                    && let Ok(start_snippet) = source_map.span_to_snippet(start_point)
+                    && let Ok(start_snippet_) = source_map.span_to_snippet(start_point)
                 {
-                    corrections.push((
-                        start_point,
-                        if has_nested {
-                            // In this case, `start_snippet` must equal '{'.
-                            format!("{start_snippet}{import_snippet}, ")
-                        } else {
-                            // In this case, add a `{`, then the moved import, then whatever
-                            // was there before.
-                            format!("{{{import_snippet}, {start_snippet}")
-                        },
-                    ));
-
+                    start_snippet = start_snippet_;
+                    if has_nested {
+                        //_span In this case, `start_snippet` must equal '{'.
+                        start_point_nested = Some(start_point);
+                    } else {
+                        // In this case, add a `{`, then the moved import, then whatever
+                        // was there before.
+                        start_point_not_nested = Some(start_point);
+                    };
                     // Add a `};` to the end if nested, matching the `{` added at the start.
                     if !has_nested {
-                        corrections
-                            .push((source_map.end_point(after_crate_name), "};".to_string()));
+                        end_point_not_nested = Some(source_map.end_point(after_crate_name));
                     }
                 } else {
                     // If the root import is module-relative, add the import separately
-                    corrections.push((
-                        import.use_span.shrink_to_lo(),
-                        format!("use {module_name}::{import_snippet};\n"),
-                    ));
+                    module_relative_root_import = Some(import.use_span.shrink_to_lo());
                 }
             }
 
-            let suggestion = Some((
-                corrections,
-                String::from("a macro with this name exists at the root of the crate"),
-                Applicability::MaybeIncorrect,
-            ));
-            Some((suggestion, Some("this could be because a macro annotated with `#[macro_export]` will be exported \
-            at the root of the crate instead of the module where it is defined"
-               .to_string())))
+            let suggestion = Some(FailedToResolveHelpOrSuggestion::MacroWithThisNameAtCrateRoot {
+                import: import_span,
+                module_name,
+                import_snippet,
+                removal,
+                start_point_nested,
+                start_point_not_nested,
+                start_snippet,
+                end_point_not_nested,
+                module_relative_root_import,
+            });
+            Some((suggestion, Some(FailedToResolveNote::MacroExportedAtCrateRoot)))
         } else {
             None
         }

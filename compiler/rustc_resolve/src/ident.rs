@@ -8,8 +8,11 @@ use rustc_span::def_id::LocalDefId;
 use rustc_span::hygiene::{ExpnId, ExpnKind, LocalExpnId, MacroKind, SyntaxContext};
 use rustc_span::symbol::{kw, Ident};
 use rustc_span::Span;
+use rustc_span::DUMMY_SP;
 
-use crate::errors::{ParamKindInEnumDiscriminant, ParamKindInNonTrivialAnonConst};
+use crate::errors::{
+    FailedToResolveLabel, ParamKindInEnumDiscriminant, ParamKindInNonTrivialAnonConst,
+};
 use crate::late::{ConstantHasGenerics, NoConstantGenericsReason, PathSource, Rib, RibKind};
 use crate::macros::{sub_namespace_match, MacroRulesScope};
 use crate::{errors, AmbiguityError, AmbiguityErrorMisc, AmbiguityKind, Determinacy, Finalize};
@@ -1392,7 +1395,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                         }
                     }
                     return PathResult::failed(ident, false, finalize.is_some(), module, || {
-                        ("there are too many leading `super` keywords".to_string(), None)
+                        (FailedToResolveLabel::TooManySuperKeyword { span: DUMMY_SP }, None)
                     });
                 }
                 if segment_idx == 0 {
@@ -1426,15 +1429,22 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             // Report special messages for path segment keywords in wrong positions.
             if ident.is_path_segment_keyword() && segment_idx != 0 {
                 return PathResult::failed(ident, false, finalize.is_some(), module, || {
-                    let name_str = if name == kw::PathRoot {
-                        "crate root".to_string()
-                    } else {
-                        format!("`{name}`")
-                    };
-                    let label = if segment_idx == 1 && path[0].ident.name == kw::PathRoot {
-                        format!("global paths cannot start with {name_str}")
-                    } else {
-                        format!("{name_str} in paths can only be used in start position")
+                    let is_root = name == kw::PathRoot;
+                    let cannot_start_with = segment_idx == 1 && path[0].ident.name == kw::PathRoot;
+                    let label = match (is_root, cannot_start_with) {
+                        (true, true) => {
+                            FailedToResolveLabel::GlobalPathCannotStartWithRoot { span: DUMMY_SP }
+                        }
+                        (false, true) => FailedToResolveLabel::GlobalPathCannotStartWithName {
+                            span: DUMMY_SP,
+                            name,
+                        },
+                        (true, false) => {
+                            FailedToResolveLabel::RootOnlyInStartPosition { span: DUMMY_SP }
+                        }
+                        (false, false) => {
+                            FailedToResolveLabel::NameOnlyInStartPosition { span: DUMMY_SP, name }
+                        }
                     };
                     (label, None)
                 });
@@ -1526,11 +1536,12 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                             finalize.is_some(),
                             module,
                             || {
-                                let label = format!(
-                                    "`{ident}` is {} {}, not a module",
-                                    res.article(),
-                                    res.descr()
-                                );
+                                let label = FailedToResolveLabel::IdentIsNotModule {
+                                    span: DUMMY_SP,
+                                    ident,
+                                    article: res.article(),
+                                    descr: res.descr(),
+                                };
                                 (label, None)
                             },
                         );
