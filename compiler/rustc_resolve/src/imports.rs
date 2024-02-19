@@ -831,8 +831,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                     source_binding @ (Ok(..) | Err(Determined)) => {
                         if source_binding.is_ok() {
                             this.dcx()
-                                .create_err(IsNotDirectlyImportable { span: import.span, target })
-                                .emit();
+                                .emit_err(IsNotDirectlyImportable { span: import.span, target });
                         }
                         let key = BindingKey::new(target, ns);
                         this.update_resolution(parent, key, false, |_, resolution| {
@@ -880,9 +879,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                         span_bug!(import.span, "inconsistent resolution for an import");
                     }
                 } else if self.privacy_errors.is_empty() {
-                    self.dcx()
-                        .create_err(CannotDetermineImportResolution { span: import.span })
-                        .emit();
+                    self.dcx().emit_err(CannotDetermineImportResolution { span: import.span });
                 }
 
                 module
@@ -1080,8 +1077,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                             }
                         } else if this.privacy_errors.is_empty() {
                             this.dcx()
-                                .create_err(CannotDetermineImportResolution { span: import.span })
-                                .emit();
+                                .emit_err(CannotDetermineImportResolution { span: import.span });
                         }
                     }
                     Err(..) => {
@@ -1239,16 +1235,13 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 );
             } else {
                 if ns == TypeNS {
-                    let err = if crate_private_reexport {
-                        self.dcx().create_err(CannotBeReexportedCratePublicNS {
-                            span: import.span,
-                            ident,
-                        })
+                    if crate_private_reexport {
+                        self.dcx()
+                            .emit_err(CannotBeReexportedCratePublicNS { span: import.span, ident })
                     } else {
                         self.dcx()
-                            .create_err(CannotBeReexportedPrivateNS { span: import.span, ident })
+                            .emit_err(CannotBeReexportedPrivateNS { span: import.span, ident })
                     };
-                    err.emit();
                 } else {
                     let mut err = if crate_private_reexport {
                         self.dcx()

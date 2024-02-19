@@ -1,9 +1,7 @@
 //! A bunch of methods and structures more or less related to resolving macros and
 //! interface provided by `Resolver` to macro expander.
 
-use crate::errors::CannotDetermineMacroResolution;
-use crate::errors::{self, AddAsNonDerive, CannotFindIdentInThisScope};
-use crate::errors::{MacroExpectedFound, RemoveSurroundingDerive};
+use crate::errors;
 use crate::Namespace::*;
 use crate::{BuiltinMacroState, Determinacy, MacroData, Used};
 use crate::{DeriveData, Finalize, ParentScope, ResolutionError, Resolver, ScopeSet};
@@ -14,7 +12,7 @@ use rustc_ast_pretty::pprust;
 use rustc_attr::StabilityLevel;
 use rustc_data_structures::intern::Interned;
 use rustc_data_structures::sync::Lrc;
-use rustc_errors::{codes::*, struct_span_code_err, Applicability, StashKey};
+use rustc_errors::{Applicability, StashKey};
 use rustc_expand::base::{Annotatable, DeriveResolutions, Indeterminate, ResolverExpand};
 use rustc_expand::base::{SyntaxExtension, SyntaxExtensionKind};
 use rustc_expand::compile_declarative_macro;
@@ -557,7 +555,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         if let Some((article, expected)) = unexpected_res {
             let path_str = pprust::path_to_string(path);
 
-            let mut err = MacroExpectedFound {
+            let mut err = errors::MacroExpectedFound {
                 span: path.span,
                 expected,
                 found: res.descr(),
@@ -570,8 +568,9 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 && kind == MacroKind::Derive
                 && ext.macro_kind() != MacroKind::Derive
             {
-                err.remove_surrounding_derive = Some(RemoveSurroundingDerive { span: path.span });
-                err.add_as_non_derive = Some(AddAsNonDerive { macro_path: &path_str });
+                err.remove_surrounding_derive =
+                    Some(errors::RemoveSurroundingDerive { span: path.span });
+                err.add_as_non_derive = Some(errors::AddAsNonDerive { macro_path: &path_str });
             }
 
             self.dcx()
@@ -710,7 +709,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 // even if speculative `resolve_path` returned nothing previously, so we skip this
                 // less informative error if no other error is reported elsewhere.
 
-                let err = this.dcx().create_err(CannotDetermineMacroResolution {
+                let err = this.dcx().create_err(errors::CannotDetermineMacroResolution {
                     span,
                     kind: kind.descr(),
                     path: Segment::names_to_string(path),
@@ -817,7 +816,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 Err(..) => {
                     let expected = kind.descr_expected();
 
-                    let mut err = self.dcx().create_err(CannotFindIdentInThisScope {
+                    let mut err = self.dcx().create_err(errors::CannotFindIdentInThisScope {
                         span: ident.span,
                         expected,
                         ident,
@@ -940,14 +939,10 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                         rule_spans = Vec::new();
                     }
                     BuiltinMacroState::AlreadySeen(span) => {
-                        struct_span_code_err!(
-                            self.dcx(),
-                            item.span,
-                            E0773,
-                            "attempted to define built-in macro more than once"
-                        )
-                        .with_span_note(span, "previously defined here")
-                        .emit();
+                        self.dcx().emit_err(errors::AttemptToDefineBuiltinMacroTwice {
+                            span: item.span,
+                            note_span: span,
+                        });
                     }
                 }
             } else {
