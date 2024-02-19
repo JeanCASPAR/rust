@@ -979,3 +979,470 @@ pub(crate) struct VariableNotInAllPatterns {
     #[primary_span]
     pub(crate) span: Span,
 }
+
+#[derive(Diagnostic)]
+pub(crate) enum FailedToResolve {
+    #[diag(resolve_failed_resolve_unresolve_import, code = E0433)]
+    UnresolveImport {
+        #[primary_span]
+        span: Span,
+    },
+    #[diag(resolve_maybe_missing_crate, code = E0433)]
+    MaybeMissingCrate {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[diag(resolve_could_not_find_ident_in_root, code = E0433)]
+    CouldNotFindIdentInRoot {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[diag(resolve_could_not_find_ident_in_imported_crates, code = E0433)]
+    CouldNotFindIdentInImportedCrates {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[diag(resolve_could_not_find_ident_in_parent, code = E0433)]
+    CouldNotFindIdentInParent {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+        parent: Symbol,
+    },
+    #[diag(resolve_expected_found, code = E0433)]
+    ExpectedFound {
+        #[primary_span]
+        span: Span,
+        ns_descr: &'static str,
+        what: &'static str,
+        ident: Ident,
+        parent: Symbol,
+    },
+    #[diag(resolve_self_cannot_be_used_in_imports, code = E0433)]
+    SelfCannotBeUsedInImports {
+        #[primary_span]
+        span: Span,
+    },
+    #[diag(resolve_self_is_only_available_in, code = E0433)]
+    SelfImportsOnlyAllowedIn {
+        #[primary_span]
+        span: Span,
+    },
+    #[diag(resolve_undeclared_type, code = E0433)]
+    UndeclaredType {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[diag(resolve_is_not_crate_or_module, code = E0433)]
+    IsNotCrateOrModule {
+        #[primary_span]
+        span: Span,
+        descr: &'static str,
+        ident: Ident,
+    },
+    #[diag(resolve_undeclared_crate_or_module, code = E0433)]
+    UndeclaredCrateOrModule {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[diag(resolve_global_paths_cannot_start_with_root, code = E0433)]
+    GlobalPathCannotStartWithRoot {
+        #[primary_span]
+        span: Span,
+    },
+    #[diag(resolve_global_paths_cannot_start_with_name, code = E0433)]
+    GlobalPathCannotStartWithName {
+        #[primary_span]
+        span: Span,
+        name: Symbol,
+    },
+    #[diag(resolve_root_only_in_start_position, code = E0433)]
+    RootOnlyInStartPosition {
+        #[primary_span]
+        span: Span,
+    },
+    #[diag(resolve_name_only_in_start_position, code = E0433)]
+    NameOnlyInStartPosition {
+        #[primary_span]
+        span: Span,
+        name: Symbol,
+    },
+    #[diag(resolve_too_many_super_keyword, code = E0433)]
+    TooManySuperKeyword {
+        #[primary_span]
+        span: Span,
+    },
+    #[diag(resolve_ident_is_not_module, code = E0433)]
+    IdentIsNotModule {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+        article: &'static str,
+        descr: &'static str,
+    },
+    #[diag(resolve_partially_resolved_path, code = E0433)]
+    PartiallyResolvedPath {
+        #[primary_span]
+        span: Span,
+        article: &'static str,
+        descr: &'static str,
+    },
+    #[diag(resolve_cannot_glob_import_into_itself, code = E0433)]
+    CannotGlobImportIntoItself {
+        #[primary_span]
+        span: Span,
+    },
+    #[diag(resolve_no_ident_in_module, code = E0433)]
+    NoIdentInModule {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+        module: String,
+    },
+    #[diag(resolve_no_ident_in_root, code = E0433)]
+    NoIdentInRoot {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[diag(resolve_no_external_crate_ident, code = E0433)]
+    NoExternalCrateIdent {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[diag(resolve_failed_to_resolve, code = E0433)]
+    EmptyLabel,
+}
+
+#[derive(Diagnostic)]
+#[diag(resolve_unresolve_import, code = E0432)]
+pub(crate) struct UnresolvedImport {
+    #[primary_span]
+    pub(crate) span: MultiSpan,
+    pub(crate) number: usize,
+    pub(crate) paths: String,
+}
+
+/// the label should be the same as the one of FailedToResolve
+#[derive(Subdiagnostic, Debug, Clone)]
+pub(crate) enum FailedToResolveLabel {
+    #[label(resolve_failed_resolve_unresolve_import_label)]
+    UnresolveImport {
+        #[primary_span]
+        span: Span,
+    },
+    #[label(resolve_maybe_missing_crate_label)]
+    MaybeMissingCrate {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[label(resolve_could_not_find_ident_in_root_label)]
+    CouldNotFindIdentInRoot {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[label(resolve_could_not_find_ident_in_imported_crates_label)]
+    CouldNotFindIdentInImportedCrates {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[label(resolve_could_not_find_ident_in_parent_label)]
+    CouldNotFindIdentInParent {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+        parent: Symbol,
+    },
+    #[label(resolve_expected_found_label)]
+    ExpectedFound {
+        #[primary_span]
+        span: Span,
+        ns_descr: &'static str,
+        what: &'static str,
+        ident: Ident,
+        parent: Symbol,
+    },
+    #[label(resolve_self_cannot_be_used_in_imports_label)]
+    SelfCannotBeUsedInImports {
+        #[primary_span]
+        span: Span,
+    },
+    #[label(resolve_self_is_only_available_in_label)]
+    SelfImportsOnlyAllowedIn {
+        #[primary_span]
+        span: Span,
+    },
+    #[label(resolve_undeclared_type_label)]
+    UndeclaredType {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[label(resolve_is_not_crate_or_module_label)]
+    IsNotCrateOrModule {
+        #[primary_span]
+        span: Span,
+        descr: &'static str,
+        ident: Ident,
+    },
+    #[label(resolve_undeclared_crate_or_module_label)]
+    UndeclaredCrateOrModule {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[label(resolve_global_paths_cannot_start_with_root_label)]
+    GlobalPathCannotStartWithRoot {
+        #[primary_span]
+        span: Span,
+    },
+    #[label(resolve_global_paths_cannot_start_with_name)]
+    GlobalPathCannotStartWithName {
+        #[primary_span]
+        span: Span,
+        name: Symbol,
+    },
+    #[label(resolve_root_only_in_start_position_label)]
+    RootOnlyInStartPosition {
+        #[primary_span]
+        span: Span,
+    },
+    #[label(resolve_name_only_in_start_position_label)]
+    NameOnlyInStartPosition {
+        #[primary_span]
+        span: Span,
+        name: Symbol,
+    },
+    #[label(resolve_too_many_super_keyword_label)]
+    TooManySuperKeyword {
+        #[primary_span]
+        span: Span,
+    },
+    #[label(resolve_ident_is_not_module_label)]
+    IdentIsNotModule {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+        article: &'static str,
+        descr: &'static str,
+    },
+    #[label(resolve_partially_resolved_path_label)]
+    PartiallyResolvedPath {
+        #[primary_span]
+        span: Span,
+        article: &'static str,
+        descr: &'static str,
+    },
+    #[label(resolve_cannot_glob_import_into_itself_label)]
+    CannotGlobImportIntoItself {
+        #[primary_span]
+        span: Span,
+    },
+    #[label(resolve_no_ident_in_module_label)]
+    NoIdentInModule {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+        module: String,
+    },
+    #[label(resolve_no_ident_in_root_label)]
+    NoIdentInRoot {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    #[label(resolve_no_external_crate_ident_label)]
+    NoExternalCrateIdent {
+        #[primary_span]
+        span: Span,
+        ident: Ident,
+    },
+    EmptyLabel,
+}
+
+impl FailedToResolveLabel {
+    pub(crate) fn set_span(&mut self, new_span: Span) {
+        match self {
+            Self::UnresolveImport { span }
+            | Self::MaybeMissingCrate { span, .. }
+            | Self::CouldNotFindIdentInRoot { span, .. }
+            | Self::CouldNotFindIdentInImportedCrates { span, .. }
+            | Self::CouldNotFindIdentInParent { span, .. }
+            | Self::ExpectedFound { span, .. }
+            | Self::SelfCannotBeUsedInImports { span }
+            | Self::SelfImportsOnlyAllowedIn { span }
+            | Self::UndeclaredType { span, .. }
+            | Self::IsNotCrateOrModule { span, .. }
+            | Self::UndeclaredCrateOrModule { span, .. }
+            | Self::GlobalPathCannotStartWithRoot { span }
+            | Self::GlobalPathCannotStartWithName { span, .. }
+            | Self::RootOnlyInStartPosition { span }
+            | Self::NameOnlyInStartPosition { span, .. }
+            | Self::TooManySuperKeyword { span }
+            | Self::IdentIsNotModule { span, .. }
+            | Self::PartiallyResolvedPath { span, .. }
+            | Self::CannotGlobImportIntoItself { span }
+            | Self::NoIdentInModule { span, .. }
+            | Self::NoIdentInRoot { span, .. }
+            | Self::NoExternalCrateIdent { span, .. } => *span = new_span,
+            Self::EmptyLabel => (),
+        }
+    }
+
+    pub(crate) fn into_error(self) -> FailedToResolve {
+        match self {
+            FailedToResolveLabel::UnresolveImport { span } => {
+                FailedToResolve::UnresolveImport { span }
+            }
+            FailedToResolveLabel::MaybeMissingCrate { span, ident } => {
+                FailedToResolve::MaybeMissingCrate { span, ident }
+            }
+            FailedToResolveLabel::CouldNotFindIdentInRoot { span, ident } => {
+                FailedToResolve::CouldNotFindIdentInRoot { span, ident }
+            }
+            FailedToResolveLabel::CouldNotFindIdentInImportedCrates { span, ident } => {
+                FailedToResolve::CouldNotFindIdentInImportedCrates { span, ident }
+            }
+            FailedToResolveLabel::CouldNotFindIdentInParent { span, ident, parent } => {
+                FailedToResolve::CouldNotFindIdentInParent { span, ident, parent }
+            }
+            FailedToResolveLabel::ExpectedFound { span, ns_descr, what, ident, parent } => {
+                FailedToResolve::ExpectedFound { span, ns_descr, what, ident, parent }
+            }
+            FailedToResolveLabel::SelfCannotBeUsedInImports { span } => {
+                FailedToResolve::SelfCannotBeUsedInImports { span }
+            }
+            FailedToResolveLabel::SelfImportsOnlyAllowedIn { span } => {
+                FailedToResolve::SelfImportsOnlyAllowedIn { span }
+            }
+            FailedToResolveLabel::UndeclaredType { span, ident } => {
+                FailedToResolve::UndeclaredType { span, ident }
+            }
+            FailedToResolveLabel::IsNotCrateOrModule { span, descr, ident } => {
+                FailedToResolve::IsNotCrateOrModule { span, descr, ident }
+            }
+            FailedToResolveLabel::UndeclaredCrateOrModule { span, ident } => {
+                FailedToResolve::UndeclaredCrateOrModule { span, ident }
+            }
+            FailedToResolveLabel::GlobalPathCannotStartWithRoot { span } => {
+                FailedToResolve::GlobalPathCannotStartWithRoot { span }
+            }
+            FailedToResolveLabel::GlobalPathCannotStartWithName { span, name } => {
+                FailedToResolve::GlobalPathCannotStartWithName { span, name }
+            }
+            FailedToResolveLabel::RootOnlyInStartPosition { span } => {
+                FailedToResolve::RootOnlyInStartPosition { span }
+            }
+            FailedToResolveLabel::NameOnlyInStartPosition { span, name } => {
+                FailedToResolve::NameOnlyInStartPosition { span, name }
+            }
+            FailedToResolveLabel::TooManySuperKeyword { span } => {
+                FailedToResolve::TooManySuperKeyword { span }
+            }
+            FailedToResolveLabel::IdentIsNotModule { span, ident, article, descr } => {
+                FailedToResolve::IdentIsNotModule { span, ident, article, descr }
+            }
+            FailedToResolveLabel::PartiallyResolvedPath { span, article, descr } => {
+                FailedToResolve::PartiallyResolvedPath { span, article, descr }
+            }
+            FailedToResolveLabel::CannotGlobImportIntoItself { span } => {
+                FailedToResolve::CannotGlobImportIntoItself { span }
+            }
+            FailedToResolveLabel::NoIdentInModule { span, ident, module } => {
+                FailedToResolve::NoIdentInModule { span, ident, module }
+            }
+            FailedToResolveLabel::NoIdentInRoot { span, ident } => {
+                FailedToResolve::NoIdentInRoot { span, ident }
+            }
+            FailedToResolveLabel::NoExternalCrateIdent { span, ident } => {
+                FailedToResolve::NoExternalCrateIdent { span, ident }
+            }
+            FailedToResolveLabel::EmptyLabel => FailedToResolve::EmptyLabel,
+        }
+    }
+}
+
+#[derive(Subdiagnostic, Debug, Clone)]
+pub(crate) enum FailedToResolveHelpOrSuggestion {
+    #[multipart_suggestion(
+        resolve_failed_to_resolve_suggest_remove_exclamation_mark,
+        applicability = "maybe-incorrect"
+    )]
+    SuggestRemoveExclamationMark {
+        #[suggestion_part(code = "")]
+        exclamation_span: Span,
+        path: String,
+        kind: &'static str,
+    },
+    #[multipart_suggestion(resolve_similar_path_exists, applicability = "maybe-incorrect")]
+    SimilarPathExists {
+        #[suggestion_part(code = "{path}")]
+        span: Span,
+        path: String,
+    },
+    #[multipart_suggestion(resolve_using_std_instead_of_core, applicability = "maybe-incorrect")]
+    TryUsingStdInsteadOfCore {
+        #[suggestion_part(code = "std")]
+        span: Span,
+    },
+    #[help(resolve_consider_adding_extern_crate)]
+    ConsiderAddingExternCrate,
+    #[multipart_suggestion(resolve_ident_is_not_a_type, applicability = "maybe-incorrect")]
+    IdentIsNotAType {
+        #[suggestion_part(code = "")]
+        span: Span,
+    },
+    #[help(resolve_add_extern_crate_alloc)]
+    AddExternCrateAlloc,
+    #[multipart_suggestion(
+        resolve_crate_module_with_similar_name,
+        applicability = "maybe-incorrect"
+    )]
+    CrateModuleWithSimilarName {
+        #[suggestion_part(code = "{suggestion}")]
+        span: Span,
+        suggestion: Symbol,
+    },
+    #[multipart_suggestion(resolve_similar_name_in_module, applicability = "maybe-incorrect")]
+    SimilarNameInModule {
+        #[suggestion_part(code = "{suggestion}")]
+        span: Span,
+        suggestion: Symbol,
+    },
+    /// see `Resolver::check_for_module_export_macro` in diagnostics for details
+    #[multipart_suggestion(resolve_macro_with_this_name_at_crate_root)]
+    MacroWithThisNameAtCrateRoot {
+        #[suggestion_part(code = "{module_name}::{import_snippet}")]
+        import: Option<Span>,
+        module_name: Symbol,
+        import_snippet: String,
+        #[suggestion_part(code = "")]
+        removal: Option<Span>,
+        #[suggestion_part(code = "{start_snippet}{import_snippet}, ")]
+        start_point_nested: Option<Span>,
+        #[suggestion_part(code = "{{{import_snippet}, {start_snippet}")]
+        start_point_not_nested: Option<Span>,
+        start_snippet: String,
+        #[suggestion_part(code = "}};")]
+        end_point_not_nested: Option<Span>,
+        #[suggestion_part(code = "use {module_name}::{import_snippet};\n")]
+        module_relative_root_import: Option<Span>,
+    },
+}
+
+#[derive(Subdiagnostic, Debug, Clone)]
+pub(crate) enum FailedToResolveNote {
+    #[note(resolve_macro_exported_at_crate_root)]
+    MacroExportedAtCrateRoot,
+    #[note(resolve_use_statements_changed_rust_2018)]
+    UseStatementsChangedRust2018,
+}

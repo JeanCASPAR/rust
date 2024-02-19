@@ -30,9 +30,10 @@ use rustc_span::{BytePos, Span, SyntaxContext, DUMMY_SP};
 use thin_vec::{thin_vec, ThinVec};
 
 use crate::errors::{
-    self, AddedMacroUse, ChangeImportBinding, ChangeImportBindingSuggestion, ConsiderAddingADerive,
-    ExplicitUnsafeTraits, MaybeMissingMacroRulesName,
+    self, AddedMacroUse, ChangeImportBinding, ChangeImportBindingSuggestion,
+    FailedToResolveHelpOrSuggestion, FailedToResolveLabel, FailedToResolveNote,
 };
+use crate::errors::{ConsiderAddingADerive, ExplicitUnsafeTraits, MaybeMissingMacroRulesName};
 use crate::imports::{Import, ImportKind};
 use crate::late::{PatternSource, Rib};
 use crate::{errors as errs, BindingKey};
@@ -803,11 +804,11 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             ResolutionError::FailedToResolve { segment, mut label, suggestion, module } => {
                 label.set_span(span);
 
-                let mut err = self.dcx().create_err(errors::FailedToResolve {
-                    span,
-                    label,
-                    suggestion,
-                });
+                let mut err = self.dcx().create_err(label.clone().into_error());
+                err.subdiagnostic(self.dcx(), label);
+                if let Some(suggestion) = suggestion {
+                    err.subdiagnostic(self.dcx(), suggestion);
+                }
 
                 if let Some(ModuleOrUniformRoot::Module(module)) = module
                     && let Some(module) = module.opt_def_id()

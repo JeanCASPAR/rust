@@ -81,7 +81,11 @@ resolve_cannot_find_ident_in_this_scope =
     cannot find {$expected} `{$ident}` in this scope
 
 resolve_cannot_glob_import_into_itself =
+    failed to resolve: cannot glob-import a module into itself
+
+resolve_cannot_glob_import_into_itself_label =
     cannot glob-import a module into itself
+
 resolve_cannot_glob_import_possible_crates =
     cannot glob-import all possible crates
 
@@ -117,11 +121,18 @@ resolve_const_param_in_ty_of_const_param =
     const parameters may not be used in the type of const parameters
 
 resolve_could_not_find_ident_in_imported_crates =
+    failed to resolve: could not find `{$ident}` in the list of imported crates
+
+resolve_could_not_find_ident_in_imported_crates_label =
     could not find `{$ident}` in the list of imported crates
 
-resolve_could_not_find_ident_in_parent = could not find `{$ident}` in `{$parent}`
+resolve_could_not_find_ident_in_parent = failed to resolve: could not find `{$ident}` in `{$parent}`
 
-resolve_could_not_find_ident_in_root = could not find `{$ident}` in the crate root
+resolve_could_not_find_ident_in_parent_label = could not find `{$ident}` in `{$parent}`
+
+resolve_could_not_find_ident_in_root = failed to resolve: could not find `{$ident}` in the crate root
+
+resolve_could_not_find_ident_in_root_label = could not find `{$ident}` in the crate root
 
 resolve_crate_may_not_be_imported =
     `$crate` may not be imported
@@ -138,6 +149,10 @@ resolve_elided_anonymous_lifetime_report_error =
 
 resolve_elided_anonymous_lifetime_report_error_suggestion =
     consider introducing a higher-ranked lifetime here
+
+resolve_expected_found = expected {$ns_descr}, found {$what} `{$ident}` in `{$parent}`
+
+resolve_expected_found_label = expected {$ns_descr}, found {$what} `{$ident}` in `{$parent}`
 
 resolve_expected_module_found =
     expected module, found {$res} `{$path_str}`
@@ -156,6 +171,11 @@ resolve_extern_crate_loading_macro_not_at_crate_root =
 resolve_extern_crate_self_requires_renaming =
     `extern crate self;` requires renaming
     .suggestion = rename the `self` crate to be able to import it
+
+resolve_failed_to_resolve = failed to resolve: TODO # should be empty
+
+resolve_failed_to_resolve_suggest_remove_exclamation_mark =
+    {$path} is not a macro, but a {$kind}, try to remove `!`
 
 resolve_forward_declared_generic_param =
     generic parameters with a default cannot use forward declared identifiers
@@ -185,11 +205,16 @@ resolve_generic_params_from_outer_item_static = a `static` is a separate item fr
 
 resolve_generic_params_from_outer_item_ty_param = type parameter from outer item
 
-
 resolve_global_paths_cannot_start_with_name =
+    failed to resolve: global paths cannot start with `{$name}`
+
+resolve_global_paths_cannot_start_with_name_label =
     global paths cannot start with `{$name}`
 
 resolve_global_paths_cannot_start_with_root =
+    failed to resolve: global paths cannot start with crate root
+
+resolve_global_paths_cannot_start_with_root_label =
     global paths cannot start with crate root
 
 resolve_ident_bound_more_than_once_in_parameter_list =
@@ -199,6 +224,15 @@ resolve_ident_bound_more_than_once_in_parameter_list =
 resolve_ident_bound_more_than_once_in_same_pattern =
     identifier `{$identifier}` is bound more than once in the same pattern
     .label = used in a pattern more than once
+
+resolve_ident_is_not_a_type =
+    `{$ident}` is defined here, but is not a type
+
+resolve_ident_is_not_module =
+    failed to resolve: `{$ident}` is {$article} {$descr}, not a module
+
+resolve_ident_is_not_module_label =
+    `{$ident}` is {$article} {$descr}, not a module
 
 resolve_implicit_elided_lifetimes_not_allowed_here = implicit elided lifetime not allowed here
 
@@ -218,6 +252,9 @@ resolve_invalid_asm_sym =
     .help = `sym` operands must refer to either a function or a static
 
 resolve_is_not_crate_or_module =
+    failed to resolve: {$descr} `{$ident}` is not a crate or module
+
+resolve_is_not_crate_or_module_label =
     {$descr} `{$ident}` is not a crate or module
 
 resolve_is_not_directly_importable =
@@ -249,6 +286,9 @@ resolve_macro_expanded_extern_crate_cannot_shadow_extern_arguments =
 resolve_macro_expected_found =
     expected {$expected}, found {$found} `{$macro_path}`
 
+resolve_macro_exported_at_crate_root =
+    this could be because a macro annotated with `#[macro_export]` will be exported at the root of the crate instead of the module where it is defined
+
 resolve_macro_extern_deprecated =
     `#[macro_escape]` is a deprecated synonym for `#[macro_use]`
     .help = try an outer attribute: `#[macro_use]`
@@ -258,6 +298,13 @@ resolve_macro_use_extern_crate_self = `#[macro_use]` is not supported on `extern
 resolve_macro_use_name_already_in_use =
     `{$name}` is already in scope
     .note = macro-expanded `#[macro_use]`s may not shadow existing macros (see RFC 1560)
+
+resolve_macro_with_this_name_at_crate_root =
+    a macro with this name exists at the root of the crate
+
+resolve_maybe_missing_crate = failed to resolve: maybe a missing crate `{$ident}`?
+
+resolve_maybe_missing_crate_label = maybe a missing crate `{$ident}`?
 
 resolve_method_not_member_of_trait =
     method `{$method}` is not a member of trait `{$trait_}`
@@ -274,15 +321,27 @@ resolve_name_is_already_used_as_generic_parameter =
     .first_use_of_name = first use of `{$name}`
 
 resolve_name_only_in_start_position =
+    failed to resolve: `{$name}` in paths can only be used in start position
+
+resolve_name_only_in_start_position_label =
     `{$name}` in paths can only be used in start position
 
 resolve_no_external_crate_ident =
+    failed to resolve: no external crate `{$ident}`
+
+resolve_no_external_crate_ident_label =
     no external crate `{$ident}`
 
 resolve_no_ident_in_module =
+    failed to resolve: no `{$ident}` in `{$module}`
+
+resolve_no_ident_in_module_label =
     no `{$ident}` in `{$module}`
 
 resolve_no_ident_in_root =
+    failed to resolve: no `{$ident}` in the root
+
+resolve_no_ident_in_root_label =
     no `{$ident}` in the root
 
 resolve_param_in_enum_discriminant =
@@ -303,6 +362,12 @@ resolve_param_in_ty_of_const_param =
 resolve_parent_module_reset_for_binding =
     parent module is reset for binding
 
+resolve_partially_resolved_path =
+    failed to resolve: partially resolved path in {$article} {$descr}
+
+resolve_partially_resolved_path_label =
+    partially resolved path in {$article} {$descr}
+
 resolve_pattern_doesnt_bind_name = pattern doesn't bind `{$name}`
 
 resolve_proc_macro_same_crate = can't use a procedural macro from the same crate that defines it
@@ -322,9 +387,14 @@ resolve_remove_surrounding_derive =
     remove from the surrounding `derive()`
 
 resolve_root_only_in_start_position =
+    failed to resolve: crate root in paths can only be used in start position
+
+resolve_root_only_in_start_position_label =
     crate root in paths can only be used in start position
 
-resolve_self_cannot_be_used_in_imports = `Self` cannot be used in imports
+resolve_self_cannot_be_used_in_imports = failed to resolve: `Self` cannot be used in imports
+
+resolve_self_cannot_be_used_in_imports_label = `Self` cannot be used in imports
 
 resolve_self_import_can_only_appear_once_in_the_list =
     `self` import can only appear once in an import list
@@ -347,8 +417,24 @@ resolve_self_in_generic_param_default =
     generic parameters cannot use `Self` in their defaults
     .label = `Self` in generic parameter default
 
+resolve_self_is_only_available_in =
+    failed to resolve: `Self` is only available in impls, traits, and type definitions
+
+resolve_self_is_only_available_in_label =
+    `Self` is only available in impls, traits, and type definitions
+
+resolve_similar_name_in_module = a similar name exists in the module
+
+resolve_similar_path_exists = a similar path exists
+
 resolve_static_lifetime_is_reserved = invalid lifetime parameter name: `{$lifetime}`
     .label = 'static is a reserved lifetime name
+
+resolve_too_many_super_keyword =
+    failed to resolve: there are too many leading `super` keywords
+
+resolve_too_many_super_keyword_label =
+    there are too many leading `super` keywords
 
 resolve_tool_module_imported =
     cannot use a tool module through an import
@@ -382,11 +468,18 @@ resolve_type_param_in_ty_of_const_param =
     type parameters may not be used in the type of const parameters
 
 resolve_undeclared_crate_or_module =
+    failed to resolve: use of undeclared crate or module `{$ident}`
+
+resolve_undeclared_crate_or_module_label =
     use of undeclared crate or module `{$ident}`
 
 resolve_undeclared_label =
     use of undeclared label `{$name}`
     .label = undeclared label `{$name}`
+
+resolve_undeclared_type = failed to resolve: use of undeclared type `{$ident}`
+
+resolve_undeclared_type_label = use of undeclared type `{$ident}`
 
 resolve_underscore_lifetime_is_reserved = `'_` cannot be used here
     .label = `'_` is a reserved lifetime name
@@ -427,7 +520,9 @@ resolve_unresolve_import = { $number ->
     *[other] unresolved import {$paths}
 }
 
-resolve_unresolve_import_label = unresolved import
+resolve_failed_resolve_unresolve_import = failed to resolve: unresolved import
+
+resolve_failed_resolve_unresolve_import_label = unresolved import
 
 resolve_use_statements_changed_rust_2018 =
     `use` statements changed in Rust 2018; read more at
