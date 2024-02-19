@@ -139,8 +139,6 @@ resolve_elided_anonymous_lifetime_report_error =
 resolve_elided_anonymous_lifetime_report_error_suggestion =
     consider introducing a higher-ranked lifetime here
 
-resolve_expected_found = expected {$ns_descr}, found {$what} `{$ident}` in {$parent}
-
 resolve_expected_module_found =
     expected module, found {$res} `{$path_str}`
     .label = not a module
@@ -156,14 +154,8 @@ resolve_extern_crate_loading_macro_not_at_crate_root =
     an `extern crate` loading macros must be at the crate root
 
 resolve_extern_crate_self_requires_renaming =
-    rename the `self` crate to be able to import it
+    `extern crate self;` requires renaming
     .suggestion = rename the `self` crate to be able to import it
-
-resolve_failed_to_resolve =
-    failed to resolve: {$label}
-
-resolve_failed_to_resolve_suggest_remove_exclamation_mark =
-    {$path} is not a macro, but a {$kind}, try to remove `!`
 
 resolve_forward_declared_generic_param =
     generic parameters with a default cannot use forward declared identifiers
@@ -207,12 +199,6 @@ resolve_ident_bound_more_than_once_in_parameter_list =
 resolve_ident_bound_more_than_once_in_same_pattern =
     identifier `{$identifier}` is bound more than once in the same pattern
     .label = used in a pattern more than once
-
-resolve_ident_is_not_a_type =
-    `{$ident}` is defined here, but is not a type
-
-resolve_ident_is_not_module =
-    `{$ident}` is {$article} {$descr}, not a module
 
 resolve_implicit_elided_lifetimes_not_allowed_here = implicit elided lifetime not allowed here
 
@@ -263,11 +249,6 @@ resolve_macro_expanded_extern_crate_cannot_shadow_extern_arguments =
 resolve_macro_expected_found =
     expected {$expected}, found {$found} `{$macro_path}`
 
-resolve_macro_exported_at_crate_root =
-    this could be because a macro annotated with `#[macro_export]`
-    will be exported at the root of the crate instead of the module
-    where it is defined
-
 resolve_macro_extern_deprecated =
     `#[macro_escape]` is a deprecated synonym for `#[macro_use]`
     .help = try an outer attribute: `#[macro_use]`
@@ -277,11 +258,6 @@ resolve_macro_use_extern_crate_self = `#[macro_use]` is not supported on `extern
 resolve_macro_use_name_already_in_use =
     `{$name}` is already in scope
     .note = macro-expanded `#[macro_use]`s may not shadow existing macros (see RFC 1560)
-
-resolve_macro_with_this_name_at_crate_root =
-    a macro with this name exists at the root of the crate
-
-resolve_maybe_missing_crate = maybe a missing crate `{$ident}`?
 
 resolve_method_not_member_of_trait =
     method `{$method}` is not a member of trait `{$trait_}`
@@ -327,9 +303,6 @@ resolve_param_in_ty_of_const_param =
 resolve_parent_module_reset_for_binding =
     parent module is reset for binding
 
-resolve_partially_resolved_path =
-    partially resolved path in {$article} {$descr}
-
 resolve_pattern_doesnt_bind_name = pattern doesn't bind `{$name}`
 
 resolve_proc_macro_same_crate = can't use a procedural macro from the same crate that defines it
@@ -374,19 +347,8 @@ resolve_self_in_generic_param_default =
     generic parameters cannot use `Self` in their defaults
     .label = `Self` in generic parameter default
 
-resolve_self_is_only_available_in =
-    `Self` is only available in impls, traits, and type definitions
-
-resolve_similar_name_in_module =
-    a similar name exists in the module
-
-resolve_similar_path_exists = a similar path exists
-
-resolve_static_lifetime_is_reserved = invalid lifetime parameter name: `{$ident}`
+resolve_static_lifetime_is_reserved = invalid lifetime parameter name: `{$lifetime}`
     .label = 'static is a reserved lifetime name
-
-resolve_too_many_super_keyword =
-    there are too many leading `super` keywords
 
 resolve_tool_module_imported =
     cannot use a tool module through an import
@@ -425,8 +387,6 @@ resolve_undeclared_crate_or_module =
 resolve_undeclared_label =
     use of undeclared label `{$name}`
     .label = undeclared label `{$name}`
-
-resolve_undeclared_type = use of undeclared type `{$ident}`
 
 resolve_underscore_lifetime_is_reserved = `'_` cannot be used here
     .label = `'_` is a reserved lifetime name

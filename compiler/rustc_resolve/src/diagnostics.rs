@@ -30,10 +30,9 @@ use rustc_span::{BytePos, Span, SyntaxContext, DUMMY_SP};
 use thin_vec::{thin_vec, ThinVec};
 
 use crate::errors::{
-    self, AddedMacroUse, ChangeImportBinding, ChangeImportBindingSuggestion,
-    FailedToResolveHelpOrSuggestion, FailedToResolveLabel, FailedToResolveNote,
+    self, AddedMacroUse, ChangeImportBinding, ChangeImportBindingSuggestion, ConsiderAddingADerive,
+    ExplicitUnsafeTraits, MaybeMissingMacroRulesName,
 };
-use crate::errors::{ConsiderAddingADerive, ExplicitUnsafeTraits, MaybeMissingMacroRulesName};
 use crate::imports::{Import, ImportKind};
 use crate::late::{PatternSource, Rib};
 use crate::{errors as errs, BindingKey};
