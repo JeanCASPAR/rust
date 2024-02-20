@@ -121,20 +121,18 @@ pub(crate) fn registered_tools(tcx: TyCtxt<'_>, (): ()) -> RegisteredTools {
             match nested_meta.ident() {
                 Some(ident) => {
                     if let Some(old_ident) = registered_tools.replace(ident) {
-                        let msg = format!("{} `{}` was already registered", "tool", ident);
-                        tcx.dcx()
-                            .struct_span_err(ident.span, msg)
-                            .with_span_label(old_ident.span, "already registered here")
-                            .emit();
+                        tcx.dcx().emit_err(errors::ToolWasAlreadyRegistered {
+                            span: ident.span,
+                            tool: ident,
+                            old_ident_span: old_ident.span,
+                        });
                     }
                 }
                 None => {
-                    let msg = format!("`{}` only accepts identifiers", sym::register_tool);
-                    let span = nested_meta.span();
-                    tcx.dcx()
-                        .struct_span_err(span, msg)
-                        .with_span_label(span, "not an identifier")
-                        .emit();
+                    tcx.dcx().emit_err(errors::ToolOnlyAcceptsIdentifiers {
+                        span: nested_meta.span(),
+                        tool: sym::register_tool,
+                    });
                 }
             }
         }
@@ -500,6 +498,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         let (ext, res) = match self.resolve_macro_path(path, Some(kind), parent_scope, true, force)
         {
             Ok((Some(ext), res)) => (ext, res),
+            // Use dummy syntax extensions for unresolved macros for better recovery.
             Ok((None, res)) => (self.dummy_ext(kind), res),
             Err(Determinacy::Determined) => (self.dummy_ext(kind), Res::Err),
             Err(Determinacy::Undetermined) => return Err(Indeterminate),
@@ -508,13 +507,12 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         // Report errors for the resolved macro.
         for segment in &path.segments {
             if let Some(args) = &segment.args {
-                self.dcx().span_err(args.span(), "generic arguments in macro path");
+                self.dcx().emit_err(errors::GenericArgumentsInMacroPath { span: args.span() });
             }
             if kind == MacroKind::Attr && segment.ident.as_str().starts_with("rustc") {
-                self.dcx().span_err(
-                    segment.ident.span,
-                    "attributes starting with `rustc` are reserved for use by the `rustc` compiler",
-                );
+                self.dcx().emit_err(errors::AttributesStartingWithRustcAreReserved {
+                    span: segment.ident.span,
+                });
             }
         }
 
@@ -557,6 +555,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
 
             let mut err = errors::MacroExpectedFound {
                 span: path.span,
+                article,
                 expected,
                 found: res.descr(),
                 macro_path: &path_str,
@@ -573,10 +572,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                 err.add_as_non_derive = Some(errors::AddAsNonDerive { macro_path: &path_str });
             }
 
-            self.dcx()
-                .create_err(err)
-                .with_span_label(path.span, format!("not {article} {expected}"))
-                .emit();
+            self.dcx().emit_err(err);
 
             return Ok((self.dummy_ext(kind), Res::Err));
         }
@@ -898,13 +894,13 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
     ) {
         if let Some(Res::NonMacroAttr(kind)) = res {
             if kind != NonMacroAttrKind::Tool && binding.map_or(true, |b| b.is_import()) {
-                let msg =
-                    format!("cannot use {} {} through an import", kind.article(), kind.descr());
-                let mut err = self.dcx().struct_span_err(span, msg);
-                if let Some(binding) = binding {
-                    err.span_note(binding.span, format!("the {} imported here", kind.descr()));
-                }
-                err.emit();
+                let binding_span = binding.map(|binding| binding.span);
+                self.dcx().emit_err(errors::CannotUseThroughAnImport {
+                    span,
+                    article: kind.article(),
+                    descr: kind.descr(),
+                    binding_span,
+                });
             }
         }
     }
@@ -915,10 +911,8 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
         if ident.name == sym::cfg || ident.name == sym::cfg_attr {
             let macro_kind = self.get_macro(res).map(|macro_data| macro_data.ext.macro_kind());
             if macro_kind.is_some() && sub_namespace_match(macro_kind, Some(MacroKind::Attr)) {
-                self.dcx().span_err(
-                    ident.span,
-                    format!("name `{ident}` is reserved in attribute namespace"),
-                );
+                self.dcx()
+                    .emit_err(errors::NameReservedInAttributeNamespace { span: ident.span, ident });
             }
         }
     }
@@ -949,8 +943,10 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
                     }
                 }
             } else {
-                let msg = format!("cannot find a built-in macro with name `{}`", item.ident);
-                self.dcx().span_err(item.span, msg);
+                self.dcx().emit_err(errors::CannotFindBuiltinMacroWithName {
+                    span: item.span,
+                    ident: item.ident,
+                });
             }
         }
 

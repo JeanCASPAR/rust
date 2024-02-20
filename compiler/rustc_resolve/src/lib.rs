@@ -21,8 +21,8 @@
 #![allow(rustc::potential_query_instability)]
 #![allow(rustc::untranslatable_diagnostic)]
 #![allow(internal_features)]
-//#![deny(rustc::untranslatable_diagnostic)]
-//#![deny(rustc::diagnostic_outside_of_impl)]
+// #![deny(rustc::untranslatable_diagnostic)]
+// #![deny(rustc::diagnostic_outside_of_impl)]
 
 #[macro_use]
 extern crate tracing;
