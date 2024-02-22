@@ -1550,14 +1550,14 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             }
 
             let span = self.tcx.sess.source_map().guess_head_span(def_span);
-            let descr = suggestion.res.descr();
-            let candidate = suggestion.candidate;
+            let typo_descr = suggestion.res.descr();
+            let typo_candidate = suggestion.candidate;
             let label = match suggestion.target {
                 SuggestionTarget::SimilarlyNamed => {
-                    errors::DefinedHere::SimilarlyNamed { span, descr, candidate }
+                    errors::DefinedHere::SimilarlyNamed { span, typo_descr, typo_candidate }
                 }
                 SuggestionTarget::SingleItem => {
-                    errors::DefinedHere::SingleItem { span, descr, candidate }
+                    errors::DefinedHere::SingleItem { span, typo_descr, typo_candidate }
                 }
             };
             err.subdiagnostic(self.tcx.dcx(), label);
@@ -2105,7 +2105,7 @@ impl<'a, 'tcx> Resolver<'a, 'tcx> {
             let suggestion =
                 match_span.map(|span| FailedToResolveHelpOrSuggestion::IdentIsNotAType { span });
 
-            (FailedToResolveLabel::UndeclaredType { span: DUMMY_SP, ident }, suggestion)
+            (FailedToResolveLabel::UndeclaredType { span: DUMMY_SP, type_ident: ident }, suggestion)
         } else {
             let mut suggestion = None;
             if ident.name == sym::alloc {

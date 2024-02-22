@@ -564,6 +564,7 @@ pub(crate) struct ModuleOnly(#[primary_span] pub(crate) Span);
 #[diag(resolve_macro_expected_found)]
 pub(crate) struct MacroExpectedFound<'a> {
     #[primary_span]
+    #[label]
     pub(crate) span: Span,
     pub(crate) found: &'static str,
     pub(crate) article: &'static str,
@@ -851,9 +852,9 @@ pub(crate) struct ExternCrateSelfRequiresRenaming {
 
 #[derive(Diagnostic)]
 #[diag(resolve_macro_use_name_already_in_use)]
+#[note]
 pub(crate) struct MacroUseNameAlreadyInUse {
     #[primary_span]
-    #[note]
     pub(crate) span: Span,
     pub(crate) name: Symbol,
 }
@@ -870,7 +871,7 @@ pub(crate) struct ImportedMacroNotFound {
 pub(crate) struct MacroExternDeprecated {
     #[primary_span]
     pub(crate) span: Span,
-    #[note]
+    #[help]
     pub inner_attribute: Option<()>,
 }
 
@@ -1036,7 +1037,7 @@ pub(crate) enum FailedToResolve {
     UndeclaredType {
         #[primary_span]
         span: Span,
-        ident: Ident,
+        type_ident: Ident,
     },
     #[diag(resolve_is_not_crate_or_module, code = E0433)]
     IsNotCrateOrModule {
@@ -1186,7 +1187,7 @@ pub(crate) enum FailedToResolveLabel {
     UndeclaredType {
         #[primary_span]
         span: Span,
-        ident: Ident,
+        type_ident: Ident,
     },
     #[label(resolve_is_not_crate_or_module_label)]
     IsNotCrateOrModule {
@@ -1325,8 +1326,8 @@ impl FailedToResolveLabel {
             FailedToResolveLabel::SelfImportsOnlyAllowedIn { span } => {
                 FailedToResolve::SelfImportsOnlyAllowedIn { span }
             }
-            FailedToResolveLabel::UndeclaredType { span, ident } => {
-                FailedToResolve::UndeclaredType { span, ident }
+            FailedToResolveLabel::UndeclaredType { span, type_ident } => {
+                FailedToResolve::UndeclaredType { span, type_ident }
             }
             FailedToResolveLabel::IsNotCrateOrModule { span, descr, ident } => {
                 FailedToResolve::IsNotCrateOrModule { span, descr, ident }
@@ -1572,15 +1573,15 @@ pub(crate) enum DefinedHere {
     SimilarlyNamed {
         #[primary_span]
         span: Span,
-        descr: &'static str,
-        candidate: Symbol,
+        typo_descr: &'static str,
+        typo_candidate: Symbol,
     },
     #[label(resolve_single_item_defined_here)]
     SingleItem {
         #[primary_span]
         span: Span,
-        descr: &'static str,
-        candidate: Symbol,
+        typo_descr: &'static str,
+        typo_candidate: Symbol,
     },
 }
 

@@ -506,10 +506,10 @@ resolve_similar_name_in_module = a similar name exists in the module
 resolve_similar_path_exists = a similar path exists
 
 resolve_similarly_named_defined_here =
-    similarly named {$descr} `{$candidate}` defined here
+    similarly named {$typo_descr} `{$typo_candidate}` defined here
 
 resolve_single_item_defined_here =
-    {$descr} `{$candidate}` defined here
+    {$typo_descr} `{$typo_candidate}` defined here
 
 resolve_static_lifetime_is_reserved = invalid lifetime parameter name: `{$lifetime}`
     .label = 'static is a reserved lifetime name
@@ -575,9 +575,9 @@ resolve_undeclared_label =
     use of undeclared label `{$name}`
     .label = undeclared label `{$name}`
 
-resolve_undeclared_type = failed to resolve: use of undeclared type `{$ident}`
+resolve_undeclared_type = failed to resolve: use of undeclared type `{$type_ident}`
 
-resolve_undeclared_type_label = use of undeclared type `{$ident}`
+resolve_undeclared_type_label = use of undeclared type `{$type_ident}`
 
 resolve_underscore_lifetime_is_reserved = `'_` cannot be used here
     .label = `'_` is a reserved lifetime name
